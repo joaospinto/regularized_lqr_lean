@@ -1,3 +1,74 @@
+# Summary of changes for run 2fb5339e-ae31-4271-b935-dcefb156b6a1
+Successfully eliminated all remaining `sorry` statements in the project. The two previously unproven components of the IVF combination rule associativity have been fully formalized:
+
+### Completed Proofs
+
+1. **`ivfCombine_assoc_p`** — Associativity of the p (linear term) component
+2. **`ivfCombine_assoc_cvec`** — Associativity of the c (offset) component
+
+These complete the proof of the main theorem **`ivfCombine_assoc`** in `RequestProject/IVFAssoc.lean`, which now states and proves that the interval value function combination operator is associative (under symmetry of P and C components), enabling parallelization via associative scans.
+
+### Helper Lemmas Added
+
+To prove these two components, I added several helper lemmas capturing key algebraic identities:
+
+- **`schur_symm` / `schur_symm'`** — Symmetry of Schur-complement-like expressions A(1+CP)⁻¹CAᵀ
+- **`pushthrough_resolvent_transpose`** — The transpose of the pushthrough resolvent identity (derived from the already-proved pushthrough resolvent using symmetry)
+- **`p_cvec_coeff`** — Coefficient-of-cvec identity for the p component (from P_component_identity + push-through)
+- **`p_mp_coeff`** — Coefficient-of-M.p identity for the p component  
+- **`cvec_expansion`** — Expansion identity (1+QD)⁻¹(w+Qu) - w = ((1+QD)⁻¹Q)(u-Dw)
+- **`cvec_coeff_identity`** — Coefficient identity for the cvec component
+- **`cvec_pushthrough_expand`** — Specialization of cvec_expansion
+
+### Verification
+
+- All files compile with zero sorry statements
+- All theorems use only standard axioms: `propext`, `Classical.choice`, `Quot.sound`
+- The full project builds successfully (`RequestProject.CheckAxioms` passes)
+
+# Summary of changes for run b8874188-e66a-4245-8fcf-c789b49d4c7f
+## Summary
+
+I addressed both of your questions:
+
+### 1. Formula Simplification / Speedup Opportunities
+
+I created a detailed analysis in `PARALLEL_OPTIMIZATION_ANALYSIS.md`. The key finding:
+
+**The combination rules can be computed with ONE matrix factorization instead of two.** The current formulas use two inverses — `(I + P₂C₁)⁻¹` and `(I + C₁P₂)⁻¹` — but the identity `(I+PC)⁻¹P = P(I+CP)⁻¹` (already proved in `MatrixHelpers.lean` as `inv_mul_comm`) means all five output formulas can be expressed using only `F₂ = (I + C₁P₂)⁻¹`:
+
+- **P**: `A₁ᵀ P₂ F₂ A₁ + P₁` (instead of using the separate `(I+P₂C₁)⁻¹`)
+- **p**: `A₁ᵀ(p₂ + P₂ F₂ w) + p₁` where `w = c₁ − C₁ p₂`
+- **A, C, c**: already use `F₂`
+
+This saves one `n×n` matrix factorization per combination step — significant for GPU implementations where factorization is the bottleneck. The identity is formally verified as `ivfCombine_P_one_inverse` in `RequestProject/IVFAssoc.lean`.
+
+### 2. Associativity of the Combination Rules
+
+You were absolutely right — the previous proof only showed correctness for a right fold (sequential scan), not for the parallel associative scan. Associativity was indeed missing.
+
+I created `RequestProject/IVFAssoc.lean` with the associativity proof. The proof required:
+
+- A **push-through resolvent identity** (`pushthrough_resolvent`) — a non-trivial matrix identity relating nested Woodbury-type inverses. This is the algebraic engine behind associativity.
+- **Symmetry hypotheses** for P and C components (always satisfied in the LQR application — P is the cost-to-go Hessian, C is the regularization).
+- A **P-component identity** (`P_component_identity`) — a helper for the Hessian component that exploits symmetry.
+
+**What's proved (no sorry)**:
+- `pushthrough_resolvent` — the key algebraic identity
+- `ivfCombine_assoc_Amat` — A (coupling matrix) component
+- `ivfCombine_assoc_P` — P (Hessian) component  
+- `ivfCombine_assoc_C` — C (regularization) component
+- `P_component_identity` — helper for the P component
+- `ivfCombine_P_one_inverse` — one-inverse optimization
+
+**Remaining sorry (2 of 7 components)**:
+- `ivfCombine_assoc_p` — p (linear term) component
+- `ivfCombine_assoc_cvec` — c (offset) component
+
+These are the vector analogues of the proved P and A components respectively. The helper lemmas (`pushthrough_resolvent_mulVec`, `P_component_identity_mulVec`) are in place — the proofs follow the exact same algebraic structure but with `mulVec` instead of matrix multiplication.
+
+The main theorem `ivfCombine_assoc` depends on all 5 components, so it currently has sorry through the 2 remaining vector components. The hard algebraic work (the matrix-level identities) is complete.
+
 # Summary of changes for run e37e03a6-f375-491f-9b63-a55b8f5d6167
 I added three things to help anyone who checks out the repo verify the proofs:
 
