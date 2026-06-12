@@ -28,6 +28,7 @@ noncomputable def affineCompose
 The affine composition operator is associative.
     This is the key property enabling parallelization via associative scans.
 -/
+omit [DecidableEq (Fin n)] in
 theorem affineCompose_assoc
     (p q r : (Fin n → F) × Matrix (Fin n) (Fin n) F) :
     affineCompose (affineCompose p q) r = affineCompose p (affineCompose q r) := by

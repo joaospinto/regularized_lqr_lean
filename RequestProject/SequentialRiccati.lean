@@ -11,13 +11,13 @@ dual-regularized LQR problem, including:
 - `riccatiK`: Optimal feedback gain K = −G⁻¹H
 - `riccatiPstep`: Hessian update P = Q + AᵀWA + HᵀK
 
-## § 2. PSD Preservation (Theorem 2)
+## § 2. PSD Preservation (part of `\label{main-seq-theorem}`)
 - `riccatiW_posSemidef`: W is PSD when P, Δ are PSD
 - `riccati_completing_square`: P = Q + SK + KᵀSᵀ + KᵀRK + (A+BK)ᵀW(A+BK)
 - `riccati_step_posSemidef`: One-step PSD preservation
 - `riccati_backward_posSemidef`: Full backward induction
 
-## § 3. Cost-to-Go Correctness (Theorem 3)
+## § 3. Cost-to-Go Correctness (`\label{main-seq-theorem}`)
 - `completing_the_square_generic`: Generic completing-the-square lemma
 - `oneStepLagrangian`: Definition of the one-step Lagrangian
 - Gradient conditions verifying first-order optimality
@@ -58,7 +58,7 @@ noncomputable def riccatiW : Matrix (Fin n) (Fin n) ℝ := P * (1 + Δ * P)⁻¹
     where u = (I + ΔP)⁻¹ v.
     Proof: v = (I+ΔP)u, so v^T P u = u^T(I+ΔP)^T P u
     = u^T(I+PΔ)Pu (using P,Δ symmetric) = u^TPu + u^T(PΔP)u = u^TPu + (Pu)^TΔ(Pu) -/
-theorem riccatiW_quadForm (hPs : P.IsSymm) (hΔs : Δ.IsSymm)
+theorem riccatiW_quadForm (_hPs : P.IsSymm) (_hΔs : Δ.IsSymm)
     (hInv : IsUnit (1 + Δ * P)) (v : Fin n → ℝ) :
     let u := (1 + Δ * P)⁻¹.mulVec v
     v ⬝ᵥ (riccatiW P Δ).mulVec v =
@@ -67,13 +67,13 @@ theorem riccatiW_quadForm (hPs : P.IsSymm) (hΔs : Δ.IsSymm)
   have h_inv : u = (1 + Δ * P)⁻¹ := by
     rw [ Matrix.inv_eq_left_inv hu ];
   have h_inv : (1 + Δ * P).mulVec ((1 + Δ * P)⁻¹.mulVec v) = v := by
-    simp +decide [ ← mul_assoc, ← h_inv, hu ];
+    simp +decide [ ← h_inv];
     rw [ mul_eq_one_comm.mp hu, Matrix.one_mulVec ];
   have h_inv : (1 + Δ * P).mulVec ((1 + Δ * P)⁻¹.mulVec v) = (1 + Δ * P)⁻¹.mulVec v + Δ.mulVec (P.mulVec ((1 + Δ * P)⁻¹.mulVec v)) := by
-    simp +decide [ Matrix.add_mulVec, Matrix.mulVec_add ];
+    simp +decide [  ];
     simp +decide [ add_mul, mul_assoc ];
     rw [ Matrix.add_mulVec ];
-  unfold riccatiW; simp_all +decide [ Matrix.mulVec_add, Matrix.mulVec_mulVec ] ;
+  unfold riccatiW; simp_all +decide [ Matrix.mulVec_mulVec ] ;
   simp_all +decide [ ← eq_sub_iff_add_eq', dotProduct_comm ]
 
 /-- W is symmetric when P and Δ are symmetric.
@@ -83,7 +83,7 @@ theorem riccatiW_isSymm (hPs : P.IsSymm) (hΔs : Δ.IsSymm)
     (hInv1 : IsUnit (1 + Δ * P)) (hInv2 : IsUnit (1 + P * Δ)) :
     (riccatiW P Δ).IsSymm := by
   unfold riccatiW;
-  simp_all +decide [ Matrix.IsSymm, Matrix.mul_assoc ];
+  simp_all +decide [ Matrix.IsSymm];
   convert inv_mul_comm ( Δ ) ( P ) hInv2 hInv1 using 1;
   rw [ Matrix.transpose_nonsing_inv, Matrix.transpose_add, Matrix.transpose_one, Matrix.transpose_mul, hPs, hΔs ]
 
@@ -92,7 +92,7 @@ I - WΔ = (I + PΔ)⁻¹.
     This identity (omitted from the paper for space) shows that the "residual"
     I - WΔ has a clean closed form. It also provides an alternative proof that
     W is symmetric, since (I - WΔ)^T = ((I+PΔ)⁻¹)^T = ((I+PΔ)^T)⁻¹ = (I+ΔP)⁻¹,
-    and WΔ = I - (I+PΔ)⁻¹ while ΔW = I - (I+ΔP)⁻¹ (both by Lemma 2).
+    and WΔ = I - (I+PΔ)⁻¹ while ΔW = I - (I+ΔP)⁻¹ (both by `\label{inverse-helper}`).
 -/
 theorem one_sub_riccatiW_mul (hInv1 : IsUnit (1 + Δ * P))
     (hInv2 : IsUnit (1 + P * Δ)) :
@@ -139,12 +139,14 @@ noncomputable def riccatiPstep (H : Matrix (Fin m) (Fin n) ℝ)
     (K : Matrix (Fin m) (Fin n) ℝ) : Matrix (Fin n) (Fin n) ℝ :=
   Q + Aᵀ * W * A + Hᵀ * K
 
+omit [DecidableEq (Fin n)] in
 /-- Key identity: G * K + H = 0, since K = -G⁻¹H implies GK = -H. -/
 theorem riccatiGK_add_H (G : Matrix (Fin m) (Fin m) ℝ)
     (H : Matrix (Fin m) (Fin n) ℝ) (hG : IsUnit G) :
     G * riccatiK G H + H = 0 := by
   unfold riccatiK; simp_all +decide [ Matrix.isUnit_iff_isUnit_det ] ;
 
+omit [DecidableEq (Fin n)] in
 /-- The completing-the-square matrix identity:
     P_new = Q + S*K + Kᵀ*Sᵀ + Kᵀ*R*K + (A + B*K)ᵀ * W * (A + B*K)
 
@@ -162,9 +164,9 @@ theorem riccati_completing_square
   simp +decide [ Matrix.mul_add, Matrix.add_mul, Matrix.mul_assoc, Matrix.transpose_mul, hWs.eq ];
   have h_inv : (R + Bᵀ * W * B) * (R + Bᵀ * W * B)⁻¹ = 1 := by
     exact Matrix.mul_nonsing_inv _ ( show IsUnit ( R + Bᵀ * W * B |> Matrix.det ) from hG.map ( Matrix.detMonoidHom ) );
-  simp_all +decide [ Matrix.mul_assoc, Matrix.add_mul, Matrix.mul_add, Matrix.transpose_nonsing_inv ];
+  simp_all +decide [ Matrix.mul_assoc, Matrix.add_mul,  Matrix.transpose_nonsing_inv ];
   simp_all +decide [ ← Matrix.mul_assoc, ← eq_sub_iff_add_eq' ];
-  simp_all +decide [ Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_assoc, Matrix.transpose_nonsing_inv ] ; abel_nf
+  simp_all +decide [ Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_assoc] ; abel_nf
 
 end CompletingSquare
 
@@ -185,6 +187,7 @@ def StageCostPSD : Prop :=
   ∀ (v : Fin n → ℝ) (u : Fin m → ℝ),
     0 ≤ v ⬝ᵥ Q.mulVec v + 2 * (v ⬝ᵥ S.mulVec u) + u ⬝ᵥ R.mulVec u
 
+omit [DecidableEq (Fin n)] [DecidableEq (Fin m)] in
 /-- For any matrices M (n×m) and K (m×n) and vector v (n),
     v^T(MK)v + v^T(K^TM^T)v = 2 * v^T M (Kv).
     This holds because v^TMKv is a scalar equal to its transpose v^TK^TM^Tv. -/
@@ -192,13 +195,14 @@ lemma quadForm_cross_double (M : Matrix (Fin n) (Fin m) ℝ)
     (K : Matrix (Fin m) (Fin n) ℝ) (v : Fin n → ℝ) :
     v ⬝ᵥ (M * K).mulVec v + v ⬝ᵥ (Kᵀ * Mᵀ).mulVec v =
       2 * (v ⬝ᵥ M.mulVec (K.mulVec v)) := by
-  simp +decide [ Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, two_mul ];
+  simp +decide [ Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,  two_mul ];
   simp +decide only [dotProduct_comm];
-  simp +decide [ ← Matrix.mul_assoc, ← Matrix.transpose_mul ];
+  simp +decide [ ← Matrix.transpose_mul ];
   simp +decide [ Matrix.vecMul, dotProduct ];
   simp +decide only [Finset.mul_sum _ _ _];
   exact Finset.sum_comm.trans ( Finset.sum_congr rfl fun _ _ => Finset.sum_congr rfl fun _ _ => by ring )
 
+omit [DecidableEq (Fin n)] in
 /-- The quadratic form of the Riccati step decomposes as stage cost + W-term.
     Uses the completing-the-square identity. -/
 theorem riccati_quadForm_decomp
@@ -215,7 +219,7 @@ theorem riccati_quadForm_decomp
   simp_all +decide [ Matrix.mulVec_add, Matrix.add_mulVec, dotProduct_add ];
   have := @quadForm_cross_double;
   simp_all +decide [ Matrix.add_mul, Matrix.mul_add, Matrix.mul_assoc, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec ];
-  simp_all +decide [ Matrix.vecMul_add, Matrix.add_mulVec, dotProduct_add ];
+  simp_all +decide [ Matrix.vecMul_add];
   linarith [ this S ( riccatiK ( riccatiG R B W ) ( riccatiH S A B W ) ) v ]
 
 /-
@@ -225,6 +229,7 @@ The P_new matrix from the Riccati step is symmetric.
     Hᵀ*K = -Hᵀ*G⁻¹*H and Kᵀ*H = -Hᵀ*(G⁻¹)ᵀ*H = -Hᵀ*G⁻¹*H when G is symmetric.
     G = R + Bᵀ*W*B is symmetric since R and W are symmetric.
 -/
+omit [DecidableEq (Fin n)] in
 theorem riccatiPstep_isSymm
     (hQ : Q.IsSymm) (hR : R.IsSymm) (W : Matrix (Fin n) (Fin n) ℝ)
     (hWs : W.IsSymm) (_hGu : IsUnit (riccatiG R B W)) :
@@ -336,7 +341,7 @@ theorem riccati_backward_posSemidef
 
 end FullRecursion
 -- ═══════════════════════════════════════════════════════════════════════════
--- § 3. Cost-to-Go Correctness (Theorem 3)
+-- § 3. Cost-to-Go Correctness (`\label{main-seq-theorem}`)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 /-
@@ -357,7 +362,7 @@ theorem completing_the_square_generic
     (1/2 : ℝ) * (x ⬝ᵥ H.mulVec x) + h ⬝ᵥ x =
     (1/2 : ℝ) * ((x - a) ⬝ᵥ H.mulVec (x - a))
     + ((1/2 : ℝ) * (a ⬝ᵥ H.mulVec a) + h ⬝ᵥ a) := by
-  simp_all +decide [ mul_assoc, mul_comm, mul_left_comm, sub_mul, mul_sub, Matrix.mulVec_sub, Matrix.mulVec_smul, Finset.sum_add_distrib, add_mul, mul_add, sub_eq_add_neg, add_assoc ];
+  simp_all +decide [ mul_comm,    mul_add, sub_eq_add_neg, add_assoc ];
   simp_all +decide [ mul_add, add_eq_zero_iff_eq_neg, dotProduct_add, dotProduct_neg, Matrix.mulVec_add, Matrix.mulVec_neg ] ; ring;
   rw [ show H *ᵥ x = H.transpose *ᵥ x from by rw [ hH ] ] ; norm_num [ Matrix.dotProduct_mulVec, Matrix.vecMul_transpose ] ; ring;
   rw [ hgrad ] ; norm_num [ dotProduct_neg, dotProduct_comm ] ; ring;
@@ -487,7 +492,7 @@ theorem grad_y_vanishes
   simp +decide [ optXNext, optY ];
   have h_inv : (1 + Δ * P') * (1 + Δ * P')⁻¹ = 1 := by
     exact Matrix.mul_nonsing_inv _ ( show IsUnit ( 1 + Δ * P' |> Matrix.det ) from hInv.map ( Matrix.detMonoidHom ) );
-  simp_all +decide [ mul_add, add_mul, mul_assoc, Matrix.mulVec_add, Matrix.mulVec_mulVec ];
+  simp_all +decide [ add_mul, mul_assoc, Matrix.mulVec_add, Matrix.mulVec_mulVec ];
   rw [ ← eq_sub_iff_add_eq' ] at h_inv;
   simp +decide [ h_inv, Matrix.sub_mulVec ];
   abel1
@@ -504,7 +509,7 @@ theorem grad_u_vanishes
     (r : Fin m → ℝ) (cvec : Fin n → ℝ)
     (P' : Matrix (Fin n) (Fin n) ℝ) (p' : Fin n → ℝ)
     (x : Fin n → ℝ)
-    (hP's : P'.IsSymm) (hΔs : Δ.IsSymm)
+    (_hP's : P'.IsSymm) (_hΔs : Δ.IsSymm)
     (hInv1 : IsUnit (1 + Δ * P'))
     (hInv2 : IsUnit (1 + P' * Δ))
     (hGu : IsUnit (riccatiG R B (riccatiW P' Δ))) :
@@ -517,15 +522,16 @@ theorem grad_u_vanishes
     have hB_y : let ustar := optU R M A B Δ r cvec P' p' x; let x'star := optXNext R M A B Δ r cvec P' p' x; let ystar := optY R M A B Δ r cvec P' p' x; ystar = riccatiW P' Δ *ᵥ (A.mulVec x + B.mulVec ustar + cvec) + ((1 + P' * Δ)⁻¹).mulVec p' := by
       simp +decide [ optY, optXNext, riccatiW ];
       rw [ Matrix.mulVec_sub, ← one_sub_riccatiW_mul P' Δ hInv1 hInv2 ];
-      simp +decide [ sub_mul, Matrix.sub_mulVec ];
-      exact?;
+      simp +decide [ Matrix.sub_mulVec ];
+      exact add_comm_sub ((P' * (1 + Δ * P')⁻¹) *ᵥ (A *ᵥ x + B *ᵥ optU R M A B Δ r cvec P' p' x + cvec))
+        ((P' * (1 + Δ * P')⁻¹ * Δ) *ᵥ p') p';
     simp +decide only [hB_y, mulVec_add];
   simp_all +decide [ optU, optXNext, optY, riccatiW, riccatiG, riccatiH, riccatiK ];
   simp_all +decide [ Matrix.mul_add, Matrix.add_mul, Matrix.mul_assoc, Matrix.mulVec_add, Matrix.mulVec_mulVec ];
   simp_all +decide [ ← Matrix.mul_assoc, ← eq_sub_iff_add_eq' ];
   simp_all +decide [ Matrix.add_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, sub_eq_add_neg ];
-  simp_all +decide [ ← Matrix.mul_assoc, ← Matrix.add_mulVec, ← Matrix.mulVec_add, ← Matrix.neg_mulVec, ← Matrix.mulVec_neg ];
-  simp_all +decide [ Matrix.add_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, Matrix.mulVec_mulVec, Matrix.mul_assoc, Matrix.add_mul, Matrix.mul_add, Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, Matrix.mulVec_mulVec, Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, Matrix.mulVec_mulVec, Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, Matrix.mulVec_mulVec, Matrix.mul_assoc, Matrix.mulVec_mulVec ];
+  simp_all +decide [ ← Matrix.mul_assoc, ← Matrix.add_mulVec,  ← Matrix.neg_mulVec];
+  simp_all +decide [ Matrix.add_mulVec,  Matrix.neg_mulVec,  Matrix.mul_assoc, Matrix.add_mul,  Matrix.mul_assoc,   Matrix.neg_mulVec,  Matrix.mul_assoc,   Matrix.neg_mulVec,  Matrix.mul_assoc,   Matrix.neg_mulVec,  Matrix.mul_assoc];
   abel1
 
 /-
@@ -584,10 +590,10 @@ theorem dual_completing_square
     (P' : Matrix (Fin n) (Fin n) ℝ) (p' : Fin n → ℝ) (const' : ℝ)
     (x : Fin n → ℝ) (y : Fin n → ℝ)
     (hΔs : Δ.IsSymm)
-    (hP's : P'.IsSymm)
+    (_hP's : P'.IsSymm)
     (hInv1 : IsUnit (1 + Δ * P'))
-    (hInv2 : IsUnit (1 + P' * Δ))
-    (hGu : IsUnit (riccatiG R B (riccatiW P' Δ))) :
+    (_hInv2 : IsUnit (1 + P' * Δ))
+    (_hGu : IsUnit (riccatiG R B (riccatiW P' Δ))) :
     let ustar := optU R M A B Δ r cvec P' p' x
     let x'star := optXNext R M A B Δ r cvec P' p' x
     let ystar := optY R M A B Δ r cvec P' p' x
@@ -596,10 +602,10 @@ theorem dual_completing_square
     - (1/2 : ℝ) * ((y - ystar) ⬝ᵥ Δ.mulVec (y - ystar)) := by
   unfold oneStepLag;
   have := grad_y_vanishes R M A B Δ r cvec P' p' x hInv1;
-  simp_all +decide [ mul_sub, sub_mul, dotProduct_sub, sub_dotProduct ];
+  simp_all +decide [ mul_sub,  sub_dotProduct ];
   simp +decide [ Matrix.mulVec_sub, dotProduct_sub ];
   rw [ show Δ *ᵥ y = Δ.transpose *ᵥ y by rw [ hΔs ] ] ; norm_num [ Matrix.dotProduct_mulVec, Matrix.vecMul_transpose ] ; ring;
-  simp +decide [ Matrix.vecMul_mulVec, Matrix.dotProduct_mulVec, dotProduct_comm ] ; ring
+  simp +decide [ Matrix.dotProduct_mulVec, dotProduct_comm ] ; ring
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- § 6. Value Identity
@@ -677,7 +683,7 @@ theorem ystar_eq_Wv_plus_psi
   simp +decide [ optY, optXNext ]
   rw [ ← one_sub_riccatiW_mul P' Δ hInv1 hInv2 ]
   rw [ Matrix.sub_mulVec, Matrix.mulVec_add, Matrix.mulVec_sub ]
-  simp +decide [ Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.mulVec_smul, riccatiW ] ; abel_nf
+  simp +decide [ Matrix.mulVec_add,  riccatiW ] ; abel_nf
 
 set_option maxHeartbeats 1600000 in
 theorem pdot_xnext_eq
@@ -693,7 +699,7 @@ theorem pdot_xnext_eq
     let ψ := ((1 + P' * Δ)⁻¹).mulVec p'
     p' ⬝ᵥ (optXNext R M A B Δ r cvec P' p' x) = ψ ⬝ᵥ (v - Δ.mulVec p') := by
   unfold optXNext
-  simp +decide [ Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.transpose_nonsing_inv, hP's.eq, hΔs.eq ]
+  simp +decide [ Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.transpose_nonsing_inv, hP's.eq, hΔs.eq ]
   rw [ ← Matrix.mulVec_transpose, Matrix.transpose_nonsing_inv, Matrix.transpose_add, Matrix.transpose_mul, hP's.eq, hΔs.eq ] ; norm_num [ Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.transpose_nonsing_inv, hP's.eq, hΔs.eq ]
 
 set_option maxHeartbeats 1600000 in
@@ -702,9 +708,9 @@ theorem xnext_terms_simplify
     (A : Matrix (Fin n) (Fin n) ℝ) (B : Matrix (Fin n) (Fin m) ℝ)
     (Δ : Matrix (Fin n) (Fin n) ℝ)
     (r : Fin m → ℝ) (cvec : Fin n → ℝ)
-    (P' : Matrix (Fin n) (Fin n) ℝ) (p' : Fin n → ℝ) (const' : ℝ)
+    (P' : Matrix (Fin n) (Fin n) ℝ) (p' : Fin n → ℝ) (_const' : ℝ)
     (x : Fin n → ℝ)
-    (hP's : P'.IsSymm) (hΔs : Δ.IsSymm)
+    (_hP's : P'.IsSymm) (_hΔs : Δ.IsSymm)
     (hInv1 : IsUnit (1 + Δ * P'))
     (hInv2 : IsUnit (1 + P' * Δ)) :
     let ustar := optU R M A B Δ r cvec P' p' x
@@ -719,7 +725,7 @@ theorem xnext_terms_simplify
     - (1/2 : ℝ) * (ψ ⬝ᵥ Δ.mulVec p') := by
   -- Use the gradient condition P'.mulVec x'star + (p' - ystar) = 0 to simplify the dot products.
   have h_grad : P'.mulVec (optXNext R M A B Δ r cvec P' p' x) + (p' - optY R M A B Δ r cvec P' p' x) = 0 := by
-    simp +decide [ sub_eq_iff_eq_add, optY ];
+    simp +decide [ optY ];
   have h_simp : let ustar := optU R M A B Δ r cvec P' p' x;
     let x'star := optXNext R M A B Δ r cvec P' p' x;
     let ystar := optY R M A B Δ r cvec P' p' x;
@@ -747,7 +753,7 @@ theorem xnext_terms_simplify
     let W := riccatiW P' Δ;
     let ψ := ((1 + P' * Δ)⁻¹).mulVec p';
     p' ⬝ᵥ x'star = ψ ⬝ᵥ (v - Δ.mulVec p') := by
-      exact?;
+      exact pdot_xnext_eq R M A B Δ r cvec P' p' x _hP's _hΔs;
   simp_all +decide [ Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, dotProduct_comm ];
   grind
 
@@ -774,6 +780,7 @@ theorem G_grad_vanishes
   simp +decide [ Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.neg_mulVec, hGu, isUnit_iff_ne_zero ];
   abel1
 
+omit [DecidableEq (Fin n)] [DecidableEq (Fin m)] in
 theorem riccatiG_isSymm'
     (R : Matrix (Fin m) (Fin m) ℝ) (B : Matrix (Fin n) (Fin m) ℝ)
     (W : Matrix (Fin n) (Fin n) ℝ)
@@ -807,9 +814,9 @@ theorem ustar_quadratic_at_opt
     = (1/2 : ℝ) * (x ⬝ᵥ (Hᵀ * K).mulVec x) + (Hᵀ.mulVec kvec) ⬝ᵥ x
     + (1/2 : ℝ) * (hvec ⬝ᵥ kvec) := by
   unfold optU
-  simp +decide [ Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.mulVec_smul, dotProduct_add, dotProduct_smul, dotProduct_comm ]
+  simp +decide [ Matrix.mulVec_add, Matrix.mulVec_neg,  dotProduct_add,  dotProduct_comm ]
   unfold riccatiK
-  simp +decide [ ← Matrix.mul_assoc, ← Matrix.dotProduct_mulVec, ← Matrix.vecMul_mulVec, dotProduct_comm ]
+  simp +decide [ ← Matrix.mul_assoc,  dotProduct_comm ]
   rw [ Matrix.mul_nonsing_inv _ ]
   · simp +decide [ Matrix.mul_assoc, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, dotProduct_comm ]
     rw [ Matrix.transpose_nonsing_inv ]
@@ -829,9 +836,10 @@ theorem half_trilinear_expand
     + (1/2 : ℝ) * (b ⬝ᵥ W.mulVec b) + b ⬝ᵥ W.mulVec c
     + (1/2 : ℝ) * (c ⬝ᵥ W.mulVec c) := by
   simp +decide [ Matrix.mulVec, dotProduct ] ; ring!;
-  simp +decide [ Matrix.vecMul, dotProduct, Finset.sum_add_distrib, add_mul, mul_add, mul_assoc, mul_comm, mul_left_comm, Finset.mul_sum _ _ _, Finset.sum_mul ] ; ring!;
-  simp +decide [ ← Finset.mul_sum _ _ _, ← Finset.sum_mul, ← Finset.sum_comm, hWs.apply ] ; ring!;
+  simp +decide [  Finset.sum_add_distrib,  mul_add, mul_assoc, mul_comm, mul_left_comm, Finset.mul_sum _ _ _] ; ring!;
+  simp +decide [ ← Finset.sum_mul, ← Finset.sum_comm, hWs.apply ] ; ring!;
 
+omit [DecidableEq (Fin n)] [DecidableEq (Fin m)] in
 /-
 Bilinear expansion of v = Ax + Bu + c in ½vᵀWv + ψᵀv, combined with stage cost.
 -/
@@ -859,11 +867,11 @@ theorem expand_v_bilinear
     + (1/2 : ℝ) * (cvec ⬝ᵥ W.mulVec cvec) + ψ ⬝ᵥ cvec := by
   unfold riccatiG riccatiH;
   have := @half_trilinear_expand n W ( A.mulVec x ) ( B.mulVec u ) cvec hWs; simp_all +decide [ Matrix.mulVec_add, Matrix.mulVec_mulVec ] ;
-  simp_all +decide [ Matrix.add_mulVec, Matrix.mulVec_add, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc, Matrix.transpose_mul, Matrix.transpose_nonsing_inv ];
-  simp_all +decide [ Matrix.vecMul_mulVec, Matrix.vecMul_transpose, Matrix.dotProduct_mulVec, Matrix.mulVec_transpose, dotProduct_comm ] ; ring!;
+  simp_all +decide [ Matrix.add_mulVec,  Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc];
+  simp_all +decide [  Matrix.dotProduct_mulVec, Matrix.mulVec_transpose, dotProduct_comm ] ; ring!;
   rw [ show x ⬝ᵥ u ᵥ* ( Bᵀ * ( W * A ) ) = u ⬝ᵥ x ᵥ* ( Aᵀ * ( W * B ) ) from ?_ ] ; ring;
-  simp +decide [ Matrix.vecMul, dotProduct, Finset.mul_sum _ _ _, mul_assoc, mul_comm, mul_left_comm ];
-  rw [ Finset.sum_comm ] ; congr ; ext ; congr ; ext ; simp +decide [ Matrix.mul_apply, mul_assoc, mul_comm, mul_left_comm ] ; ring;
+  simp +decide [ Matrix.vecMul, dotProduct, Finset.mul_sum _ _ _,  mul_left_comm ];
+  rw [ Finset.sum_comm ] ; congr ; ext ; congr ; ext ; simp +decide [ Matrix.mul_apply,  mul_comm] ; ring;
   simp +decide only [Finset.mul_sum _ _ _, mul_left_comm];
   exact Or.inl <| Or.inl <| Finset.sum_comm.trans <| Finset.sum_congr rfl fun _ _ => Finset.sum_congr rfl fun _ _ => by rw [ hWs.apply ] ;
 

@@ -64,7 +64,7 @@ In inner form (before optimizing over the dual variable y):
                               + yᵀ (A xᵢ + c - xⱼ) ]
 ```
 
-When C is positive definite, using Lemma 1 (quadratic maximization),
+When C is positive definite, using `\label{eliminate-y}` (quadratic maximization),
 this evaluates to:
 ```
   V_{i→j}(xᵢ, xⱼ) = ½ xᵢᵀ P xᵢ + pᵀ xᵢ
@@ -159,8 +159,9 @@ the combined V_{i→k} has parameters:
 ```
 
 These rules correspond to eliminating the shared boundary variable xⱼ
-by quadratic minimization from V_{i→j}(xᵢ, xⱼ) + V_{j→k}(xⱼ, xₖ).
-See arXiv:2104.03186, Theorem 1, for the full derivation. -/
+by quadratic minimization from V_{i→j}(xᵢ, xⱼ) + V_{j→k}(xⱼ, xₖ); they are the
+combination rules `\label{lqr-gpu-combo}` of the paper (extending
+arXiv:2104.03186). -/
 noncomputable def ivfCombine (left right : IntervalValueFn n) : IntervalValueFn n :=
   let P₁ := left.P;  let p₁ := left.p;  let A₁ := left.Amat
   let C₁ := left.C;  let c₁ := left.cvec
@@ -249,7 +250,7 @@ theorem ivfFoldRight_C_zero {N : ℕ} (prob : DualRegLQR n m N)
   induction' i with i ih;
   · rfl;
   · rw [ ivfFoldRight ];
-    split_ifs <;> simp_all +decide [ Nat.lt_succ_iff ];
+    split_ifs <;> simp_all +decide [  ];
     exact ivfCombine_C_zero _ _ ( ivfFoldRight_Amat_zero _ _ ( by linarith ) ) ( ih ( Nat.le_of_lt ‹_› ) )
 
 /-
@@ -291,7 +292,7 @@ theorem woodbury_riccati
     (B : Matrix (Fin n) (Fin m) ℝ)
     (R : Matrix (Fin m) (Fin m) ℝ)
     (hInv1 : IsUnit (1 + Δ * P))
-    (hInv2 : IsUnit (1 + P * Δ))
+    (_hInv2 : IsUnit (1 + P * Δ))
     (hR : IsUnit R)
     (hG : IsUnit (riccatiG R B (riccatiW P Δ)))
     (hPC : IsUnit (1 + P * (Δ + B * R⁻¹ * Bᵀ))) :
@@ -306,13 +307,13 @@ theorem woodbury_riccati
     unfold riccatiW; simp_all +decide [ ← mul_assoc ] ;
   have hW_inv : (1 + P * (Δ + B * R⁻¹ * Bᵀ)) * (riccatiW P Δ - riccatiW P Δ * B * (riccatiG R B (riccatiW P Δ))⁻¹ * Bᵀ * riccatiW P Δ) = P := by
     simp_all +decide [ mul_sub, ← mul_assoc, Matrix.isUnit_iff_isUnit_det ];
-    simp_all +decide [ mul_add, add_mul, mul_assoc, Matrix.mul_assoc, Matrix.mul_inv_rev, riccatiW, riccatiG ];
+    simp_all +decide [ mul_add, add_mul, mul_assoc, Matrix.mul_assoc,  riccatiW, riccatiG ];
     simp_all +decide [ ← add_assoc, ← Matrix.mul_assoc ];
     have h_inv : (R + Bᵀ * P * (1 + Δ * P)⁻¹ * B) * (R + Bᵀ * P * (1 + Δ * P)⁻¹ * B)⁻¹ = 1 := by
       exact Matrix.mul_nonsing_inv _ ( show IsUnit _ from isUnit_iff_ne_zero.mpr hG );
-    simp_all +decide [ Matrix.mul_assoc, add_mul, mul_add, ← eq_sub_iff_add_eq' ];
-    simp_all +decide [ mul_assoc, Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_add, Matrix.add_mul, Matrix.mul_one, Matrix.one_mul ];
-    simp_all +decide [ ← Matrix.mul_assoc, ← eq_sub_iff_add_eq' ];
+    simp_all +decide [ Matrix.mul_assoc, add_mul,  ← eq_sub_iff_add_eq' ];
+    simp_all +decide [ mul_assoc, Matrix.mul_sub, Matrix.sub_mul,   Matrix.one_mul ];
+    simp_all +decide [ ← Matrix.mul_assoc];
   rw [ ← hW_inv, ← Matrix.mul_assoc ];
   simp_all +decide [ Matrix.isUnit_iff_isUnit_det ]
 
@@ -327,6 +328,7 @@ Core Schur complement identity relating the parallel and sequential formulas.
 
     where Ã = A − BR⁻¹Mᵀ, H = BᵀWA + Mᵀ, G = R + BᵀWB.
 -/
+omit [DecidableEq (Fin n)] in
 theorem schur_complement_parallel_sequential
     (Q : Matrix (Fin n) (Fin n) ℝ) (R : Matrix (Fin m) (Fin m) ℝ)
     (M : Matrix (Fin n) (Fin m) ℝ) (A : Matrix (Fin n) (Fin n) ℝ)
@@ -424,14 +426,14 @@ theorem parallel_p_step2
     -- RHS: q + Aᵀg + Hᵀk
     qk + Aᵀ.mulVec g + Hᵀ.mulVec kk := by
   unfold riccatiH;
-  simp +decide [ Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.mulVec_neg, Matrix.mulVec_mulVec, Matrix.vecMul_mulVec, Matrix.vecMul_sub, Matrix.vecMul_add, sub_eq_add_neg, add_assoc, add_left_comm, add_comm ];
-  simp +decide [ Matrix.add_mul, Matrix.mul_add, Matrix.mul_assoc, Matrix.vecMul_add, Matrix.vecMul_mulVec, Matrix.vecMul_neg, Matrix.neg_mulVec, Matrix.mulVec_add, Matrix.mulVec_neg, Matrix.transpose_nonsing_inv, hRs.eq, hWs.eq ] ; ring;
+  simp +decide [ Matrix.mulVec_add,  Matrix.mulVec_neg, Matrix.mulVec_mulVec,   sub_eq_add_neg, add_assoc, add_left_comm, add_comm ];
+  simp +decide [ Matrix.add_mul,  Matrix.mul_assoc,   Matrix.transpose_nonsing_inv, hRs.eq, hWs.eq ] ; ring;
   have h_inv_diff : R⁻¹ * Bᵀ * W * B * (riccatiG R B W)⁻¹ = R⁻¹ - (riccatiG R B W)⁻¹ := by
     convert inv_diff_decomp R ( riccatiG R B W ) ( Bᵀ * W * B ) hR hG _ using 1;
     · simp +decide only [Matrix.mul_assoc];
     · rfl;
   simp_all +decide [ ← Matrix.mul_assoc, ← Matrix.mulVec_mulVec ];
-  simp +decide [ Matrix.add_mulVec, Matrix.sub_mulVec, Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.mulVec_mulVec, Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_assoc, Matrix.mulVec_smul, Matrix.smul_mulVec, Matrix.vecMul_mulVec, Matrix.vecMul_smul, Matrix.smul_vecMul ] ; ring
+  simp +decide [ Matrix.add_mulVec, Matrix.sub_mulVec,  Matrix.mulVec_mulVec, Matrix.mul_sub, Matrix.sub_mul, Matrix.mul_assoc] ; ring
 
 /-
 Helper step 1: (I+PĈ)⁻¹(p + Pc̃) = g - WBG⁻¹h.
@@ -459,9 +461,9 @@ theorem parallel_p_step1
       have h_inv : (1 + Pnext * Δ) *ᵥ ((1 + Pnext * Δ)⁻¹.mulVec pnext + riccatiW Pnext Δ *ᵥ ck1) = pnext + Pnext *ᵥ ck1 := by
         simp_all +decide [ Matrix.mulVec_add, Matrix.mulVec_mulVec, Matrix.isUnit_iff_isUnit_det ];
         unfold riccatiW;
-        simp +decide [ Matrix.mul_assoc, Matrix.mul_add, Matrix.add_mul, Matrix.mul_nonsing_inv, hInv1, hInv2 ];
-        simp +decide [ ← Matrix.mul_assoc, ← Matrix.add_mul, hInv1, hInv2 ];
-        rw [ show Pnext + Pnext * Δ * Pnext = Pnext * ( 1 + Δ * Pnext ) by simp +decide [ mul_add, add_mul, mul_assoc ] ] ; simp +decide [ hInv1, hInv2, Matrix.mul_assoc ];
+        simp +decide [ Matrix.mul_assoc,  Matrix.add_mul];
+        simp +decide [ ← Matrix.mul_assoc, ← Matrix.add_mul];
+        rw [ show Pnext + Pnext * Δ * Pnext = Pnext * ( 1 + Δ * Pnext ) by simp +decide [ mul_add,  mul_assoc ] ] ; simp +decide [ hInv1,  Matrix.mul_assoc ];
       have h_inv : (1 + Pnext * (Δ + B * R⁻¹ * Bᵀ)) *ᵥ ((riccatiW Pnext Δ * B * (riccatiG R B (riccatiW Pnext Δ))⁻¹).mulVec (rvec + Bᵀ.mulVec (riccatiW Pnext Δ *ᵥ ck1 + (1 + Pnext * Δ)⁻¹.mulVec pnext))) = Pnext *ᵥ B *ᵥ R⁻¹ *ᵥ (rvec + Bᵀ.mulVec (riccatiW Pnext Δ *ᵥ ck1 + (1 + Pnext * Δ)⁻¹.mulVec pnext)) := by
         have h_inv : (1 + Pnext * (Δ + B * R⁻¹ * Bᵀ)) * (riccatiW Pnext Δ * B) = Pnext * B * R⁻¹ * (riccatiG R B (riccatiW Pnext Δ)) := by
           have h_inv : (1 + Pnext * Δ) * (riccatiW Pnext Δ * B) = Pnext * B := by
@@ -472,13 +474,13 @@ theorem parallel_p_step1
                 simp_all +decide [ ← mul_assoc, Matrix.isUnit_iff_isUnit_det ];
               exact h_inv;
             rw [ ← Matrix.mul_assoc, h_inv ];
-          simp_all +decide [ mul_add, add_mul, Matrix.mul_assoc, riccatiG ];
+          simp_all +decide [ mul_add,  Matrix.mul_assoc, riccatiG ];
           simp_all +decide [ ← Matrix.mul_assoc, Matrix.isUnit_iff_isUnit_det ];
-          simp_all +decide [ mul_add, add_mul, Matrix.mul_assoc, Matrix.add_mul, Matrix.mul_add ];
+          simp_all +decide [ add_mul, Matrix.mul_assoc, Matrix.add_mul, Matrix.mul_add ];
           rw [ ← add_assoc, h_inv ];
         simp_all +decide [ ← Matrix.mul_assoc, Matrix.isUnit_iff_isUnit_det ];
       simp_all +decide [ Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.mulVec_mulVec ];
-      simp_all +decide [ Matrix.mul_add, Matrix.add_mul, Matrix.mul_assoc, Matrix.mulVec_add, Matrix.mulVec_mulVec ];
+      simp_all +decide [ Matrix.mul_add, Matrix.add_mul, Matrix.mul_assoc];
       grind +suggestions;
     have h_inv : ∀ (v w : Fin n → ℝ), (1 + Pnext * (Δ + B * R⁻¹ * Bᵀ)) *ᵥ v = (1 + Pnext * (Δ + B * R⁻¹ * Bᵀ)) *ᵥ w → v = w := by
       intro v w hvw; apply_fun ( fun x => ( 1 + Pnext * ( Δ + B * R⁻¹ * Bᵀ ) ) ⁻¹ *ᵥ x ) at hvw; simp_all +decide [ Matrix.isUnit_iff_isUnit_det ] ;
@@ -501,10 +503,10 @@ where:
 - h = r + Bᵀ g
 - k = −G⁻¹ h -/
 theorem parallel_p_step
-    (Q : Matrix (Fin n) (Fin n) ℝ) (R : Matrix (Fin m) (Fin m) ℝ)
+    (_Q : Matrix (Fin n) (Fin n) ℝ) (R : Matrix (Fin m) (Fin m) ℝ)
     (M : Matrix (Fin n) (Fin m) ℝ) (A : Matrix (Fin n) (Fin n) ℝ)
     (B : Matrix (Fin n) (Fin m) ℝ) (Pnext Δ : Matrix (Fin n) (Fin n) ℝ)
-    (pnext : Fin n → ℝ) (qk rk : Fin n → ℝ) (rvec : Fin m → ℝ)
+    (pnext : Fin n → ℝ) (qk _rk : Fin n → ℝ) (rvec : Fin m → ℝ)
     (ck1 : Fin n → ℝ)
     (hInv1 : IsUnit (1 + Δ * Pnext))
     (hInv2 : IsUnit (1 + Pnext * Δ))
@@ -563,12 +565,12 @@ theorem ivfFoldRight_P_eq_backwardP {N : ℕ} (prob : DualRegLQR n m N)
     (hValid : ∀ (j : ℕ) (hj : j < N),
       ParallelStageValid prob j hj (backwardP prob j)) :
     ∀ i, i ≤ N → (ivfFoldRight prob i).P = backwardP prob i := by
-  intro i hi; induction' i with i ih <;> simp_all +decide [ Nat.sub_sub, add_comm ] ;
+  intro i hi; induction' i with i ih <;> simp_all +decide [  ] ;
   · rfl;
   · rw [ show ivfFoldRight prob ( i + 1 ) = ivfCombine ( ivfInitRunning prob ⟨ N - 1 - i, by omega ⟩ ) ( ivfFoldRight prob i ) from ?_ ];
     · rw [ show backwardP prob ( i + 1 ) = riccatiPstep ( prob.Q ⟨ N - 1 - i, by omega ⟩ ) ( prob.A ⟨ N - 1 - i, by omega ⟩ ) ( riccatiW ( backwardP prob i ) ( prob.Delta ⟨ N - 1 - i + 1, by omega ⟩ ) ) ( riccatiH ( prob.Mcross ⟨ N - 1 - i, by omega ⟩ ) ( prob.A ⟨ N - 1 - i, by omega ⟩ ) ( prob.B ⟨ N - 1 - i, by omega ⟩ ) ( riccatiW ( backwardP prob i ) ( prob.Delta ⟨ N - 1 - i + 1, by omega ⟩ ) ) ) ( riccatiK ( riccatiG ( prob.R ⟨ N - 1 - i, by omega ⟩ ) ( prob.B ⟨ N - 1 - i, by omega ⟩ ) ( riccatiW ( backwardP prob i ) ( prob.Delta ⟨ N - 1 - i + 1, by omega ⟩ ) ) ) ( riccatiH ( prob.Mcross ⟨ N - 1 - i, by omega ⟩ ) ( prob.A ⟨ N - 1 - i, by omega ⟩ ) ( prob.B ⟨ N - 1 - i, by omega ⟩ ) ( riccatiW ( backwardP prob i ) ( prob.Delta ⟨ N - 1 - i + 1, by omega ⟩ ) ) ) ) from ?_ ];
       · convert parallel_P_step _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ using 1;
-        all_goals first | rfl | (norm_num [ ih ( Nat.le_of_lt hi ) ]) | skip;
+        all_goals first | rfl | (norm_num [ ih ( Nat.le_of_lt hi ) ]);
         · have := hValid i hi;
           convert this.seq_valid.inv1 using 1;
         · convert hValid i hi |>.seq_valid.inv2 using 1;
@@ -593,7 +595,7 @@ theorem ivfFoldRight_p_eq_backwardp {N : ℕ} (prob : DualRegLQR n m N)
     (hValid : ∀ (j : ℕ) (hj : j < N),
       ParallelStageValid prob j hj (backwardP prob j)) :
     ∀ i, i ≤ N → (ivfFoldRight prob i).p = backwardp prob i := by
-  intro i hi; induction' i with i ih <;> simp_all +decide [ Nat.sub_sub, add_comm ] ;
+  intro i hi; induction' i with i ih <;> simp_all +decide [  ] ;
   · rfl;
   · unfold ivfFoldRight backwardp; simp +decide [ hi ] ;
     convert parallel_p_step _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ using 1;
@@ -640,6 +642,7 @@ Then at u* = −R⁻¹(Mᵀx + r + Bᵀy):
 
 where P̃, p̃, Ã, Ĉ, c̃ are the base-case IVF parameters.
 -/
+omit [DecidableEq (Fin n)] in
 theorem ivfInitRunning_base_case_correct
     (Q : Matrix (Fin n) (Fin n) ℝ) (R : Matrix (Fin m) (Fin m) ℝ)
     (M : Matrix (Fin n) (Fin m) ℝ) (A : Matrix (Fin n) (Fin n) ℝ)
@@ -662,9 +665,9 @@ theorem ivfInitRunning_base_case_correct
       (1/2 : ℝ) * (y ⬝ᵥ (Δ + B * R⁻¹ * Bᵀ).mulVec y) +
     -- Constant term (independent of x, x', y)
     (-(1/2 : ℝ) * (rvec ⬝ᵥ R⁻¹.mulVec rvec)) := by
-  simp +decide [ Matrix.mulVec_add, Matrix.mulVec_smul, dotProduct_add, dotProduct_smul ];
+  simp +decide [ Matrix.mulVec_add,  dotProduct_add];
   simp +decide [ Matrix.sub_mulVec, Matrix.add_mulVec ];
-  simp +decide [ Matrix.mul_assoc, Matrix.mulVec_neg, Matrix.neg_mulVec, dotProduct_neg, neg_add_rev, add_assoc, sub_eq_add_neg ] ; ring;
+  simp +decide [ Matrix.mul_assoc, Matrix.mulVec_neg,  dotProduct_neg,  add_assoc, sub_eq_add_neg ] ; ring;
   simp_all +decide [ Matrix.isUnit_iff_isUnit_det, dotProduct_comm ] ; ring;
   simp +decide [ Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc, Matrix.transpose_nonsing_inv, hRs.eq ] ; ring
 
@@ -721,6 +724,7 @@ theorem ivfCombine_gradient_vanishes
   · ext i; norm_num; ring;
   · exact isUnit_iff_ne_zero.mpr hH
 
+omit [DecidableEq (Fin n)] in
 /-- For symmetric M: ½ (a+b)ᵀ M (a+b) − ½ aᵀ M a = a ⬝ᵥ M b + ½ b ⬝ᵥ M b -/
 theorem quadDiff_symm (M : Matrix (Fin n) (Fin n) ℝ) (a b : Fin n → ℝ)
     (hM : M.IsSymm) :
@@ -729,6 +733,7 @@ theorem quadDiff_symm (M : Matrix (Fin n) (Fin n) ℝ) (a b : Fin n → ℝ)
     a ⬝ᵥ M.mulVec b + (1/2 : ℝ) * (b ⬝ᵥ M.mulVec b) := by
   grind +suggestions
 
+set_option linter.unusedSimpArgs false in
 /-- **Completing the square for the combination rule.**
 
 For all xⱼ:
@@ -754,9 +759,9 @@ theorem ivfCombine_completing_square
     unfold ivfCombineOptXj;
     simp_all +decide [ Matrix.isUnit_iff_isUnit_det ];
   unfold ivfCombineHessianXj at *;
-  simp_all +decide [ Matrix.add_mulVec, Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.sub_mulVec, dotProduct_sub, dotProduct_add, dotProduct_smul ];
-  simp_all +decide [ ← eq_sub_iff_add_eq', Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc, Matrix.transpose_mul, Matrix.transpose_nonsing_inv, Matrix.IsSymm ];
-  simp_all +decide [ ← Matrix.mulVec_transpose, ← Matrix.dotProduct_mulVec, ← Matrix.vecMul_mulVec, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc, Matrix.transpose_mul, Matrix.transpose_nonsing_inv, Matrix.IsSymm ];
+  simp_all +decide [ Matrix.add_mulVec, Matrix.mulVec_add, Matrix.mulVec_sub, Matrix.sub_mulVec, dotProduct_sub, dotProduct_add ];
+  simp_all +decide [ ← eq_sub_iff_add_eq', Matrix.dotProduct_mulVec, Matrix.vecMul_mulVec, Matrix.mul_assoc, Matrix.transpose_nonsing_inv, Matrix.IsSymm ];
+  simp_all +decide [ ← Matrix.mulVec_transpose, Matrix.mul_assoc, Matrix.transpose_mul, Matrix.transpose_nonsing_inv ];
   ring;
   norm_num [ dotProduct_comm ]
 
@@ -774,7 +779,7 @@ theorem ivfCombine_is_minimum
     ivfEval right (ivfCombineOptXj left right xi xk) xk := by
   have := ivfCombine_completing_square left right hCLinvS hPRS hCRinvS hH xi xk xj; simp_all +decide [ Matrix.IsSymm, Matrix.PosSemidef ] ;
   have := hHpsd.2 ( Finsupp.equivFunOnFinite.symm ( xj - ivfCombineOptXj left right xi xk ) ) ; simp_all +decide [ Finsupp.sum_fintype, Matrix.mulVec, dotProduct ] ;
-  simp_all +decide [ mul_assoc, mul_sub, sub_mul, Finset.mul_sum _ _ _, Finset.sum_mul ] ; linarith;
+  simp_all +decide [ mul_assoc, mul_sub, sub_mul, Finset.mul_sum _ _ _ ] ; linarith;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- § 13. Connection: V_{i→N+1}(xᵢ, 0) = Vᵢ(xᵢ)

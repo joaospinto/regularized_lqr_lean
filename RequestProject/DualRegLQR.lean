@@ -15,7 +15,8 @@ We explicitly define:
 6. The optimal state/dual variable recovery formulas
 
 The main proved result (`backwardP_posSemidef`) is that Pₖ is positive
-semidefinite for all k ∈ {0,…,N}. This is Theorem 2 of the paper.
+semidefinite for all k ∈ {0,…,N}. This is part of the sequential Riccati
+theorem `\label{main-seq-theorem}` of the paper.
 
 Proved in SequentialRiccati.lean (§ 3):
 - The Riccati optimal (u*, x'*, y*) satisfy the first-order optimality
@@ -157,8 +158,8 @@ noncomputable def backwardP {N : ℕ}
 4. Optimal feedforward: `kₖ = −Gₖ⁻¹ hₖ`
 5. Linear update: `pₖ = qₖ + Aₖᵀ gₖ₊₁ + Hₖᵀ kₖ`
 
-(Corollary 1 of the paper shows this satisfies the affine recurrence
-`pₖ = qₖ + Kₖᵀ rₖ + (Aₖ + Bₖ Kₖ)ᵀ gₖ₊₁`.) -/
+(Corollary `\label{p-recurrence}` of the paper shows this satisfies the affine
+recurrence `pₖ = qₖ + Kₖᵀ rₖ + (Aₖ + Bₖ Kₖ)ᵀ gₖ₊₁`.) -/
 
 /-- The linear coefficient `pₖ` of the cost-to-go.
     `backwardp prob i` returns `p` at stage `N − i`. -/
@@ -359,8 +360,8 @@ noncomputable def optimalDual
 -- § 7. Main Theorem: PSD Preservation
 -- ═══════════════════════════════════════════════════════════════════════════
 
-/-- **Main Theorem (Theorem 2)**: The backward Riccati recursion preserves
-positive semidefiniteness of the cost-to-go Hessian.
+/-- **PSD preservation** (part of `\label{main-seq-theorem}`): the backward
+Riccati recursion preserves positive semidefiniteness of the cost-to-go Hessian.
 
 For a dual-regularized LQR problem with `N` stages, if:
 - The terminal cost Hessian `Qₙ` is PSD

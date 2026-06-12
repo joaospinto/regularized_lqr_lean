@@ -37,8 +37,8 @@ all states can be computed in O(log(N) log(n)) parallel time.
   but their optimality is not formally verified.
 
 References:
-- Sequential forward pass formulas: Theorem 2 of the paper
-- Parallel forward pass: Section "Composing Affine Functions" + parallel_calculus.tex
+- Sequential forward pass formulas: `\label{main-seq-theorem}` of the paper
+- Parallel forward pass: `\label{composing-affine-functions}` + parallel_calculus.tex
 -/
 import Mathlib
 import RequestProject.DualRegLQR
@@ -231,9 +231,11 @@ theorem seqForwardState_affine {N : ℕ}
     let aff := forwardAffineMap prob k
     aff.2.mulVec (seqForwardState prob k.val) + aff.1 := by
   rw [ seqForwardState ];
-  unfold forwardAffineMap optimalNextState; simp +decide [ Matrix.mulVec_add, Matrix.add_mulVec ] ; ring;
-  simp +decide [ Matrix.mulVec_add, Matrix.add_mulVec, Matrix.mulVec_mulVec, add_assoc ];
-  simp +decide [ Matrix.mul_add, Matrix.add_mulVec, add_assoc ]
+  unfold forwardAffineMap optimalNextState
+  -- Matrix.add_mulVec is needed by the chained `ext i; simp` for the second goal
+  set_option linter.unusedSimpArgs false in
+  simp +decide [ Matrix.mulVec_add, Matrix.add_mulVec ] ; ring;
+  ext i; simp +decide [ Matrix.mulVec_add, Matrix.mulVec_mulVec, Matrix.add_mulVec, Matrix.mul_add, add_assoc ]
 
 /-
 ═══════════════════════════════════════════════════════════════════════════
@@ -253,7 +255,7 @@ theorem parForwardState_eq_seqForwardState {N : ℕ}
     (prob : DualRegLQR n m N) (k : Fin (N + 1)) :
     parForwardState prob k = seqForwardState prob k.val := by
   have h_ind : ∀ (k : ℕ) (hk : k ≤ N), seqForwardState prob k = let x0 := seqForwardState prob 0; let maps : ℕ → (Fin n → ℝ) × Matrix (Fin n) (Fin n) ℝ := fun i => if h : i < N then forwardAffineMap prob ⟨i, h⟩ else (0, 1); let composed := affineFoldLeft maps k; composed.2.mulVec x0 + composed.1 := by
-    intro k hk; induction' k with k ih <;> simp_all +decide [ Nat.sub_add_comm ] ;
+    intro k hk; induction' k with k ih <;> simp_all +decide [] ;
     · unfold affineFoldLeft; aesop;
     · convert seqForwardState_affine prob ⟨ k, hk ⟩ using 1;
       simp +decide [ affineFoldLeft, affineCompose ];
